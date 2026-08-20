@@ -65,9 +65,12 @@ svg{display:block;width:100%;height:auto;overflow:visible}
 .tip{position:fixed;pointer-events:none;background:var(--surface);border:1px solid var(--ring);
   border-radius:8px;padding:6px 9px;font-size:12px;box-shadow:0 4px 14px rgba(0,0,0,.14);
   opacity:0;transition:opacity .1s;z-index:9}
-tr.go{cursor:pointer}
-tr.go:hover td{background:rgba(42,120,214,.06)}
-td.arrow{color:var(--muted);width:16px;padding-left:0}
+tr.go,tr.sv{cursor:pointer;-webkit-tap-highlight-color:rgba(42,120,214,.15)}
+tr.go:hover td,tr.sv:hover td{background:rgba(42,120,214,.06)}
+tr.go:active td,tr.sv:active td{background:rgba(42,120,214,.14)}
+tr.go td:first-child,tr.sv td:first-child{color:var(--s1);font-weight:600}
+td.arrow{font-size:18px;color:var(--s1)}
+td.arrow{width:16px;padding-left:0}
 .back{display:inline-flex;align-items:center;gap:6px;background:none;border:0;padding:6px 0;
   font:inherit;font-size:13px;color:var(--s1);cursor:pointer}
 .sum{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--ink2);margin:-2px 0 10px}
@@ -358,6 +361,11 @@ function groupBlock(p){
 }
 function bindSv(p){
   document.querySelectorAll("tr.sv").forEach(tr=>{ tr.onclick=()=>openBoss(p, tr.dataset.sv); });
+  const box = document.querySelector('[data-p="sv"]');
+  if(box) box.onclick = e => {
+    const tr = e.target.closest("tr.sv");
+    if(tr) openBoss(p, tr.dataset.sv);
+  };
 }
 function bindGroup(p){
   document.querySelectorAll(".tab[data-s]").forEach(b=>{
@@ -367,28 +375,36 @@ function bindGroup(p){
   document.querySelectorAll("tr.go").forEach(tr=>{
     tr.onclick=()=>openChild(p, tr.dataset.terr);
   });
+  const box = document.querySelector('[data-p="group"]');
+  if(box) box.onclick = e => {
+    const tr = e.target.closest("tr.go");
+    if(tr) openChild(p, tr.dataset.terr);
+  };
 }
 
+function fail(text){
+  let el = document.getElementById("fail");
+  if(!el){ el = document.createElement("p"); el.id="fail"; el.className="note";
+    el.style.color="var(--crit)"; $("#app").prepend(el); }
+  el.textContent = text;
+}
 async function openBlock(parent, ref){
-  if(!ref || !DATA["блоки"][ref.id]) return;
-  const raw = unhex(DATA["блоки"][ref.id]);
-  const key = await crypto.subtle.importKey("raw", unhex(ref.k), "AES-GCM", false, ["decrypt"]);
-  const plain = await crypto.subtle.decrypt({name:"AES-GCM", iv: raw.slice(0,12)}, key, raw.slice(12));
-  const p = JSON.parse(new TextDecoder().decode(plain));
-  p["назад"] = parent;              // цепочка «проект → супервайзер → маршрут»
-  render(p);
+  try{
+    if(!ref) return fail("Нет ключа к этому блоку — пересоберите дашборд.");
+    if(!DATA || !DATA["блоки"][ref.id])
+      return fail("Блок не найден в data.json. Вероятно, страница и данные из разных сборок: обновите страницу.");
+    const raw = unhex(DATA["блоки"][ref.id]);
+    const key = await crypto.subtle.importKey("raw", unhex(ref.k), "AES-GCM", false, ["decrypt"]);
+    const plain = await crypto.subtle.decrypt({name:"AES-GCM", iv: raw.slice(0,12)}, key, raw.slice(12));
+    const p = JSON.parse(new TextDecoder().decode(plain));
+    p["назад"] = parent;              // цепочка «проект → супервайзер → маршрут»
+    render(p);
+  }catch(e){ fail("Не удалось открыть: " + (e && e.message ? e.message : e)); }
 }
 async function openBoss(mgr, name){ return openBlock(mgr, (mgr["доступ рук"]||{})[name]); }
 
 async function openChild(boss, terr){
-  const a = (boss["доступ"]||{})[terr];
-  if(!a || !DATA["блоки"][a.id]) return;
-  const raw = unhex(DATA["блоки"][a.id]);
-  const key = await crypto.subtle.importKey("raw", unhex(a.k), "AES-GCM", false, ["decrypt"]);
-  const plain = await crypto.subtle.decrypt({name:"AES-GCM", iv: raw.slice(0,12)}, key, raw.slice(12));
-  const p = JSON.parse(new TextDecoder().decode(plain));
-  p["назад"] = boss;
-  render(p);
+  return openBlock(boss, (boss["доступ"]||{})[terr]);
 }
 
 const SORTS = [["отставание","по отставанию от плана"],["рейтинг","по рейтингу"],

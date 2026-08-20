@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="ru" data-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>Мой дашборд</title>
+<style>
+:root{
+  color-scheme:light;
+  --plane:#f9f9f7; --surface:#fcfcfb; --ink:#0b0b0b; --ink2:#52514e; --muted:#898781;
+  --grid:#e1e0d9; --axis:#c3c2b7; --ring:rgba(11,11,11,.10);
+  --s1:#2a78d6; --s1soft:#cde2fb;
+  --good:#0ca30c; --warn:#fab219; --crit:#d03b3b; --up:#006300;
+}
+@media (prefers-color-scheme:dark){
+  :root{color-scheme:dark;
+    --plane:#0d0d0d; --surface:#1a1a19; --ink:#fff; --ink2:#c3c2b7; --muted:#898781;
+    --grid:#2c2c2a; --axis:#383835; --ring:rgba(255,255,255,.10);
+    --s1:#3987e5; --s1soft:#184f95; --up:#0ca30c;}
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--plane);color:var(--ink);
+  font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;
+  padding:env(safe-area-inset-top) 0 84px}
+.wrap{max-width:760px;margin:0 auto;padding:16px}
+h1{font-size:19px;margin:0 0 2px}
+h2{font-size:13px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;
+   color:var(--muted);margin:26px 0 10px}
+.sub{color:var(--ink2);font-size:13px;margin:0}
+.card{background:var(--surface);border:1px solid var(--ring);border-radius:14px;padding:14px}
+.hero{display:flex;align-items:center;gap:16px;margin-top:14px}
+.hero .num{font-size:52px;font-weight:600;line-height:1}
+.hero .meta{font-size:13px;color:var(--ink2)}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;
+  padding:3px 9px;border-radius:999px;border:1px solid var(--ring);color:var(--ink2)}
+.dot{width:9px;height:9px;border-radius:50%;flex:none}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+@media(min-width:560px){.grid{grid-template-columns:repeat(3,1fr)}}
+.tile{background:var(--surface);border:1px solid var(--ring);border-radius:12px;padding:11px 12px}
+.tile .lab{font-size:12px;color:var(--muted)}
+.tile .val{font-size:24px;font-weight:600;margin-top:3px}
+.tile .val small{font-size:13px;font-weight:500;color:var(--ink2);margin-left:2px}
+.tile .cmp{font-size:11.5px;color:var(--ink2);margin-top:4px;display:flex;flex-wrap:wrap;gap:8px}
+.up{color:var(--up)} .down{color:var(--crit)}
+.kpi{border-top:1px solid var(--grid);padding:12px 0}
+.kpi:first-child{border-top:0}
+.kpi .row{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.kpi .name{font-weight:600;font-size:14px}
+.kpi .fact{font-size:20px;font-weight:600;font-variant-numeric:tabular-nums}
+.track{position:relative;height:10px;border-radius:5px;background:var(--s1soft);margin:9px 0 6px;overflow:visible}
+.fill{position:absolute;left:0;top:0;bottom:0;border-radius:5px;background:var(--s1)}
+.target{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--ink)}
+.kpi .why{font-size:11.5px;color:var(--muted)}
+.kpi .why summary{cursor:pointer;color:var(--ink2)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:right;padding:7px 6px;border-bottom:1px solid var(--grid);font-variant-numeric:tabular-nums}
+th:first-child,td:first-child{text-align:left;font-variant-numeric:normal}
+th{color:var(--muted);font-weight:600;font-size:11.5px;text-transform:uppercase;letter-spacing:.03em}
+.tabs{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+.tab{font-size:12.5px;padding:5px 11px;border-radius:999px;border:1px solid var(--ring);
+  background:transparent;color:var(--ink2);cursor:pointer}
+.tab[aria-pressed="true"]{background:var(--s1);border-color:var(--s1);color:#fff}
+svg{display:block;width:100%;height:auto;overflow:visible}
+.tip{position:fixed;pointer-events:none;background:var(--surface);border:1px solid var(--ring);
+  border-radius:8px;padding:6px 9px;font-size:12px;box-shadow:0 4px 14px rgba(0,0,0,.14);
+  opacity:0;transition:opacity .1s;z-index:9}
+.who{font-size:11px;color:var(--muted);font-variant-numeric:normal;margin-top:2px}
+.nav{position:fixed;left:0;right:0;bottom:0;z-index:5;display:flex;
+  background:var(--surface);border-top:1px solid var(--ring);
+  padding-bottom:env(safe-area-inset-bottom)}
+.nav button{flex:1;background:none;border:0;border-top:2px solid transparent;margin-top:-1px;
+  padding:11px 4px 12px;font:inherit;font-size:12px;color:var(--muted);cursor:pointer}
+.nav button[aria-selected="true"]{color:var(--s1);border-top-color:var(--s1);font-weight:600}
+.panel[hidden]{display:none}
+.panel h2:first-child{margin-top:14px}
+.note{font-size:12px;color:var(--muted);margin-top:10px}
+#gate{max-width:380px;margin:14vh auto;padding:0 16px;text-align:center}
+input{width:100%;padding:13px;font-size:19px;text-align:center;letter-spacing:.14em;
+  text-transform:uppercase;border-radius:11px;border:1px solid var(--axis);
+  background:var(--surface);color:var(--ink);font-family:inherit}
+button.go{width:100%;margin-top:10px;padding:13px;font-size:16px;font-weight:600;border:0;
+  border-radius:11px;background:var(--s1);color:#fff;cursor:pointer}
+.err{color:var(--crit);font-size:13px;min-height:18px;margin-top:8px}
+.exit{background:none;border:0;color:var(--muted);font-size:12px;cursor:pointer;padding:0}
+</style>
+</head>
+<body>
+
+<div id="gate">
+  <h1>Мой дашборд</h1>
+  <p class="sub" style="margin:6px 0 16px">Введи персональный код маршрута</p>
+  <form id="f"><input id="code" inputmode="latin" autocomplete="off" spellcheck="false"
+    placeholder="XXXXX-XXXXX" maxlength="13">
+  <button class="go" type="submit">Открыть</button></form>
+  <div class="err" id="err"></div>
+  <p class="note">Код действует только на твой маршрут. Данные считает отдел аналитики
+     KT&amp;G по проверенной выгрузке визитов.</p>
+</div>
+
+<main class="wrap" id="app" hidden></main>
+<div class="tip" id="tip"></div>
+
+<script>
+const ITER = 300000, SALT = "ktng-merch-dashboard-v1";
+const $ = s => document.querySelector(s);
+const enc = new TextEncoder();
+const hex = b => [...b].map(x => x.toString(16).padStart(2,"0")).join("");
+const unhex = s => new Uint8Array(s.match(/../g).map(h => parseInt(h,16)));
+
+async function derive(code){
+  const km = await crypto.subtle.importKey("raw", enc.encode(code), "PBKDF2", false, ["deriveBits"]);
+  const bits = new Uint8Array(await crypto.subtle.deriveBits(
+    {name:"PBKDF2", salt:enc.encode(SALT), iterations:ITER, hash:"SHA-256"}, km, 512));
+  const key = await crypto.subtle.importKey("raw", bits.slice(32,64), "AES-GCM", false, ["decrypt"]);
+  return {id: hex(bits.slice(0,16)), key};
+}
+async function open(code){
+  const data = await (await fetch("data.json?v=" + Date.now())).json();
+  const {id, key} = await derive(code);
+  const blob = data["блоки"][id];
+  if(!blob) return null;
+  const raw = unhex(blob);
+  const plain = await crypto.subtle.decrypt({name:"AES-GCM", iv: raw.slice(0,12)}, key, raw.slice(12));
+  return JSON.parse(new TextDecoder().decode(plain));
+}
+
+/* ---------- форматирование ---------- */
+const nd = "—";
+const f1 = v => v===null||v===undefined ? nd : (Math.round(v*10)/10).toLocaleString("ru-RU");
+const pc = v => v===null||v===undefined ? nd : f1(v)+" %";
+function delta(now, was, unit, name, neutral){
+  if(now===null||now===undefined||was===null||was===undefined) return "";
+  const d = Math.round((now-was)*10)/10;
+  if(d===0) return `<span>без изменений ${name}</span>`;
+  const cls = neutral ? "" : (d>0?"up":"down");
+  return `<span class="${cls}">${d>0?"▲":"▼"} ${Math.abs(d).toLocaleString("ru-RU")}${unit} ${name}</span>`;
+}
+function tile(lab, val, unit, cmp){
+  return `<div class="tile"><div class="lab">${lab}</div>
+    <div class="val">${val}${unit?`<small>${unit}</small>`:""}</div>
+    ${cmp?`<div class="cmp">${cmp}</div>`:""}</div>`;
+}
+const LIGHT = {"зелёный":"var(--good)","жёлтый":"var(--warn)","красный":"var(--crit)","н/д":"var(--muted)"};
+
+/* ---------- графики ---------- */
+const tip = $("#tip");
+function showTip(e, html){ tip.innerHTML = html; tip.style.opacity = 1;
+  const x = Math.min(e.clientX+12, innerWidth-tip.offsetWidth-8);
+  tip.style.left = x+"px"; tip.style.top = (e.clientY-tip.offsetHeight-10)+"px"; }
+function hideTip(){ tip.style.opacity = 0; }
+
+function bars(rows, key, unit){
+  const W=640,H=180,L=34,R=14,T=14,B=26, n=rows.length;
+  if(!n) return "<p class='note'>Данных по неделям пока нет.</p>";
+  const vals = rows.map(r=>r[key]??0), max = Math.max(...vals,1);
+  const bw = Math.min(24,(W-L-R)/n-6), step=(W-L-R)/n;
+  let s=`<svg viewBox="0 0 ${W} ${H}" role="img">`;
+  [0,.5,1].forEach(t=>{const y=T+(H-T-B)*(1-t);
+    s+=`<line x1="${L}" x2="${W-R}" y1="${y}" y2="${y}" stroke="var(--grid)" stroke-width="1"/>
+        <text x="${L-6}" y="${y+4}" text-anchor="end" font-size="11" fill="var(--muted)">${Math.round(max*t).toLocaleString("ru-RU")}</text>`;});
+  rows.forEach((r,i)=>{const v=r[key]??0, h=(H-T-B)*(v/max), x=L+step*i+(step-bw)/2, y=H-B-h;
+    s+=`<rect x="${x}" y="${y}" width="${bw}" height="${Math.max(h,1)}" rx="4" fill="var(--s1)"
+        data-t="${r["неделя"]}: ${f1(v)}${unit}"/>`;
+    s+=`<text x="${x+bw/2}" y="${H-B+15}" text-anchor="middle" font-size="10.5" fill="var(--muted)">${String(r["неделя"]).slice(-2)}</text>`;
+    if(i===n-1) s+=`<text x="${x+bw/2}" y="${y-6}" text-anchor="middle" font-size="12" font-weight="600" fill="var(--ink)">${f1(v)}</text>`;});
+  return s+"</svg>";
+}
+function line(rows, key, unit){
+  const pts = rows.map(r=>r[key]).filter(v=>v!==null&&v!==undefined);
+  if(pts.length<2) return "<p class='note'>Для линии нужно минимум две недели с данными.</p>";
+  const W=640,H=180,L=34,R=44,T=16,B=26;
+  const lo=Math.floor(Math.min(...pts)-2), hi=Math.ceil(Math.max(...pts)+2);
+  const x=i=>L+(W-L-R)*(rows.length<2?0:i/(rows.length-1));
+  const y=v=>T+(H-T-B)*(1-(v-lo)/(hi-lo||1));
+  let s=`<svg viewBox="0 0 ${W} ${H}" role="img">`;
+  [lo,(lo+hi)/2,hi].forEach(t=>{s+=`<line x1="${L}" x2="${W-R}" y1="${y(t)}" y2="${y(t)}" stroke="var(--grid)"/>
+    <text x="${L-6}" y="${y(t)+4}" text-anchor="end" font-size="11" fill="var(--muted)">${f1(t)}</text>`;});
+  let d="",last=null;
+  rows.forEach((r,i)=>{const v=r[key]; if(v===null||v===undefined) return;
+    d+=(d?" L":"M")+x(i)+" "+y(v); last=[x(i),y(v),v];});
+  s+=`<path d="${d}" fill="none" stroke="var(--s1)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+  rows.forEach((r,i)=>{const v=r[key]; if(v===null||v===undefined) return;
+    s+=`<circle cx="${x(i)}" cy="${y(v)}" r="4.5" fill="var(--s1)" stroke="var(--surface)" stroke-width="2"
+        data-t="${r["неделя"]}: ${f1(v)}${unit}"/>`;
+    s+=`<text x="${x(i)}" y="${H-B+15}" text-anchor="middle" font-size="10.5" fill="var(--muted)">${String(r["неделя"]).slice(-2)}</text>`;});
+  if(last) s+=`<text x="${last[0]+9}" y="${last[1]+4}" font-size="12" font-weight="600" fill="var(--ink)">${f1(last[2])}${unit}</text>`;
+  return s+"</svg>";
+}
+
+/* ---------- сборка экрана ---------- */
+function weekBlock(p){
+  const w=p["неделя"]["факт"], pr=p["неделя"]["пред"], t=p["неделя"]["команда"]||{};
+  if(!w) return `<p class="note">За неделю ${p["неделя"]["номер"]||""} визитов по маршруту нет.</p>`;
+  const pw = pr ? "к пред. неделе" : "";
+  return `<p class="sub" style="margin:-4px 0 10px">${w["период"]||""} · ${w["дней"]} раб. дн.</p>
+  <div class="grid">
+    ${tile("Визитов", f1(w["визитов"]),"", [delta(w["визитов"],pr&&pr["визитов"],"",pw,true),
+        t["визитов"]!=null?`медиана по команде ${f1(t["визитов"])}`:""].filter(Boolean).join(""))}
+    ${tile("Эффективность", pc(w["эффективность"]),"", [delta(w["эффективность"],pr&&pr["эффективность"]," п.п.",pw),
+        t["эффективность"]!=null?`команда ${pc(t["эффективность"])}`:""].filter(Boolean).join(""))}
+    ${tile("Сток от ёмкости", pc(w["сток"]),"", [delta(w["сток"],pr&&pr["сток"]," п.п.",pw),
+        t["сток"]!=null?`команда ${pc(t["сток"])}`:""].filter(Boolean).join(""))}
+    ${tile("Темп к нормативу", pc(w["темп"]),"", `${f1(w["визитов в день"])} виз./день при норме ${f1(w["норматив"])}`)}
+    ${tile("Данные с фото", pc(w["фото"]),"", w["без данных"]?`без данных ${w["без данных"]} виз.`:"все визиты с данными")}
+    ${tile("Медиана в ТТ", f1(w["минут"])," мин", w["коротких"]?`короче 10 мин: ${w["коротких"]} виз.`:"коротких визитов нет")}
+  </div>`;
+}
+function monthBlock(p){
+  const f=p["месяц"]["факт"], t=p["месяц"]["команда"]||{};
+  return `<p class="sub" style="margin:-4px 0 10px">${f["период"]||""} · ${f["дней"]} раб. дн.</p>
+  <div class="grid">
+    ${tile("Визитов", f1(f["визитов"]),"", f["план визитов"]?`план ${f1(f["план визитов"])} · ${pc(f["выполнение плана визитов"])}`:"")}
+    ${tile("Точек пройдено", f1(f["точек"]),"", f["план точек"]?`из ${f1(f["план точек"])} по маршруту · ${pc(f["покрытие точек"])}`:"")}
+    ${tile("Эффективность", pc(f["эффективность"]),"", `команда ${pc(t["эффективность"])} · неэфф. ${f1(f["неэффективных"])}`)}
+    ${tile("Сток от ёмкости", pc(f["сток"]),"", `команда ${pc(t["сток"])}`)}
+    ${tile("Темп к нормативу", pc(f["темп"]),"", `${f1(f["визитов в день"])} виз./день при норме ${f1(f["норматив"])}`)}
+    ${tile("Корректность", pc(f["корректность"]),"", `команда ${pc(t["корректность"])}`)}
+  </div>`;
+}
+function kpiBlock(p, boss){
+  let s='<div class="card">';
+  p["kpi"].forEach(k=>{
+    const v=k["факт"], goal=k["цель"], ok=v!==null&&v>=goal;
+    const pay=k["доля выплаты"];
+    s+=`<div class="kpi">
+      <div class="row"><span class="name">${k["kpi"]}</span><span class="fact">${pc(v)}</span></div>
+      <div class="track"><div class="fill" style="width:${Math.max(0,Math.min(100,v||0))}%"></div>
+        <div class="target" style="left:calc(${goal}% - 1px)"></div></div>
+      <div class="row"><span class="why">вес ${Math.round(k["вес"]*100)} % · цель ${pc(goal)}</span>
+        <span class="chip"><span class="dot" style="background:${ok?"var(--good)":"var(--crit)"}"></span>
+        ${ok?"цель взята":"ниже цели"}${pay!==null&&pay!==undefined?` · шкала ${Math.round(pay*100)} %`:""}</span></div>
+      <details class="why"><summary>как посчитано</summary>${k["как"]}</details>
+    </div>`;});
+  return s+`</div><p class="note">Это KPI договора, посчитанные <b>по визитам ${boss?"твоей группы":"твоего маршрута"}</b>
+    теми же формулами, что и общий KPI проекта. На твою оплату они напрямую не переносятся —
+    договорной KPI считается по проекту целиком.</p>`;
+}
+function groupBlock(p){
+  if(!p["группа"]) return "";
+  let s=`<h2>Мои маршруты · месяц</h2><div class="card"><table>
+    <tr><th>Маршрут</th><th>Рейтинг</th><th>Визитов</th><th>Эфф.</th><th>Сток</th></tr>`;
+  p["группа"].forEach(r=>{s+=`<tr><td>${r["территория"]}<div class="who">${r["исполнитель"]}</div></td>
+    <td><span class="dot" style="display:inline-block;background:${LIGHT[r["светофор"]]||"var(--muted)"}"></span>
+    ${f1(r["рейтинг"])}<div class="who">${r["светофор"]}</div></td><td>${f1(r["визитов месяц"])}</td>
+    <td>${pc(r["эфф месяц"])}</td><td>${pc(r["сток месяц"])}</td></tr>`;});
+  return s+"</table></div>";
+}
+
+const TREND = [["эффективность","Эффективность, %"," %","line"],
+               ["сток","Сток от ёмкости, %"," %","line"],
+               ["темп","Темп к нормативу, %"," %","line"],
+               ["визитов","Визитов за неделю","","bars"]];
+function drawTrend(p, k){
+  const [key,title,unit,kind]=TREND.find(t=>t[0]===k);
+  $("#trend").innerHTML = (kind==="bars"?bars:line)(p["тренд"]||[], key, unit);
+  $("#trendTable").innerHTML = `<table><tr><th>Неделя</th><th>${title}</th></tr>` +
+    (p["тренд"]||[]).map(r=>`<tr><td>${r["неделя"]}</td><td>${f1(r[key])}${unit}</td></tr>`).join("") + "</table>";
+  document.querySelectorAll(".tab[data-k]").forEach(b=>b.setAttribute("aria-pressed", b.dataset.k===k));
+}
+
+const TABS = {
+  merch: [["week","Неделя"],["month","Месяц"],["kpi","KPI"],["trend","Динамика"]],
+  boss:  [["month","Месяц"],["kpi","KPI"],["group","Маршруты"]]
+};
+function switchTab(k){
+  document.querySelectorAll(".panel").forEach(x => x.hidden = x.dataset.p !== k);
+  document.querySelectorAll(".nav button").forEach(b => b.setAttribute("aria-selected", b.dataset.p===k));
+  localStorage.setItem("mtab", k);
+  scrollTo({top:0});
+}
+
+function render(p){
+  const f = p["месяц"]["факт"], boss = p["роль"]==="руководитель";
+  const tabs = TABS[boss ? "boss" : "merch"];
+  $("#gate").hidden = true; $("#app").hidden = false;
+  $("#app").innerHTML = `
+    <h1>${boss?p["исполнитель"]:"Маршрут "+p["территория"]}</h1>
+    <p class="sub">${boss?p["территория"]:p["исполнитель"]+(p["город"]?" · "+p["город"]:"")}
+      ${boss?"":" · руководитель "+p["руководитель"]}</p>
+    <div class="hero card">
+      <div><div class="num">${f1(f["рейтинг"])}</div>
+        <div class="meta">рейтинг из 100</div></div>
+      <div>
+        <span class="chip"><span class="dot" style="background:${LIGHT[f["светофор"]]||"var(--muted)"}"></span>${f["светофор"]}</span>
+        <div class="meta" style="margin-top:7px">${boss
+          ? `${(p["группа"]||[]).length} маршрутов · красных ${(p["группа"]||[]).filter(r=>r["светофор"]==="красный").length}`
+          : (f["место"]?`${f["место"]}-е место из ${f["из"]} маршрутов`:"мало визитов для места в рейтинге")}</div>
+        <div class="meta">${f["слабые"]?"просело: "+f["слабые"]:"провалов нет"}</div>
+      </div>
+    </div>
+
+    ${boss?"":`<section class="panel" data-p="week" hidden>
+      <h2>Прошлая неделя · ${p["неделя"]["номер"]||""}</h2>${weekBlock(p)}</section>`}
+
+    <section class="panel" data-p="month" hidden>
+      <h2>Месяц ${p["месяц"]["метка"]} накопительно</h2>${monthBlock(p)}</section>
+
+    <section class="panel" data-p="kpi" hidden>
+      <h2>KPI договора · ${boss?"моя группа":"мой маршрут"}</h2>${kpiBlock(p, boss)}</section>
+
+    ${boss
+      ? `<section class="panel" data-p="group" hidden>${groupBlock(p)}</section>`
+      : `<section class="panel" data-p="trend" hidden><h2>Динамика по неделям</h2>
+          <div class="tabs">${TREND.map(t=>`<button class="tab" data-k="${t[0]}">${t[1].split(",")[0]}</button>`).join("")}</div>
+          <div class="card"><div id="trend"></div></div>
+          <details class="note"><summary>показать таблицей</summary><div id="trendTable"></div></details>
+        </section>`}
+
+    <p class="note">Обновлено ${p["обновлено"]} · источник: ${p["источник"]}<br>
+      Показатели считаются по правилам проекта: в расчёт качества идут визиты со статусом
+      «Допущен к работе» и данными с фото. Вопросы по цифре — в отдел аналитики KT&amp;G.</p>
+    <p style="margin-top:14px"><button class="exit" id="out">выйти и забыть код</button></p>
+
+    <nav class="nav">${tabs.map(t=>`<button data-p="${t[0]}" aria-selected="false">${t[1]}</button>`).join("")}</nav>`;
+
+  if(!boss) drawTrend(p,"эффективность");
+  document.querySelectorAll(".tab[data-k]").forEach(b=>b.onclick=()=>drawTrend(p,b.dataset.k));
+  document.querySelectorAll(".nav button").forEach(b=>b.onclick=()=>switchTab(b.dataset.p));
+  const want = localStorage.getItem("mtab");
+  switchTab(tabs.some(t=>t[0]===want) ? want : tabs[0][0]);
+  $("#out").onclick=()=>{localStorage.removeItem("mcode");location.reload();};
+  document.addEventListener("pointermove",e=>{
+    const el=e.target.closest("[data-t]"); el?showTip(e,el.dataset.t):hideTip();});
+  document.addEventListener("pointerleave",hideTip);
+}
+
+async function go(code){
+  $("#err").textContent="Открываю…";
+  try{
+    const p = await open(code);
+    if(!p){ $("#err").textContent="Код не найден. Проверь раскладку и попробуй ещё раз."; return; }
+    localStorage.setItem("mcode",code); render(p);
+  }catch(e){ $("#err").textContent="Код не подошёл: "+(e.message||e); }
+}
+$("#f").onsubmit=e=>{e.preventDefault();
+  const c=$("#code").value.toUpperCase().replace(/[^A-Z0-9]/g,"");
+  if(c.length<10){$("#err").textContent="В коде 10 знаков.";return;} go(c);};
+const saved=localStorage.getItem("mcode"); if(saved) go(saved);
+</script>
+</body>
+</html>

@@ -65,6 +65,13 @@ svg{display:block;width:100%;height:auto;overflow:visible}
 .tip{position:fixed;pointer-events:none;background:var(--surface);border:1px solid var(--ring);
   border-radius:8px;padding:6px 9px;font-size:12px;box-shadow:0 4px 14px rgba(0,0,0,.14);
   opacity:0;transition:opacity .1s;z-index:9}
+tr.go{cursor:pointer}
+tr.go:hover td{background:rgba(42,120,214,.06)}
+td.arrow{color:var(--muted);width:16px;padding-left:0}
+.back{display:inline-flex;align-items:center;gap:6px;background:none;border:0;padding:6px 0;
+  font:inherit;font-size:13px;color:var(--s1);cursor:pointer}
+.sum{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--ink2);margin:-2px 0 10px}
+.sum b{font-weight:600;color:var(--ink)}
 .who{font-size:11px;color:var(--muted);font-variant-numeric:normal;margin-top:2px}
 .nav{position:fixed;left:0;right:0;bottom:0;z-index:5;display:flex;
   background:var(--surface);border-top:1px solid var(--ring);
@@ -116,8 +123,9 @@ async function derive(code){
   const key = await crypto.subtle.importKey("raw", bits.slice(32,64), "AES-GCM", false, ["decrypt"]);
   return {id: hex(bits.slice(0,16)), key};
 }
+let DATA = null;
 async function open(code){
-  const data = await (await fetch("data.json?v=" + Date.now())).json();
+  const data = DATA || (DATA = await (await fetch("data.json?v=" + Date.now())).json());
   const {id, key} = await derive(code);
   const blob = data["блоки"][id];
   if(!blob) return null;
@@ -211,7 +219,12 @@ function monthBlock(p){
   const f=p["месяц"]["факт"], t=p["месяц"]["команда"]||{};
   return `<p class="sub" style="margin:-4px 0 10px">${f["период"]||""} · ${f["дней"]} раб. дн.</p>
   <div class="grid">
-    ${tile("Визитов", f1(f["визитов"]),"", f["план визитов"]?`план ${f1(f["план визитов"])} · ${pc(f["выполнение плана визитов"])}`:"")}
+    ${tile("Выполнение плана", pc(f["выполнение плана визитов"]),"",
+      f["план визитов"]
+        ? `${f1(f["визитов"])} из ${f1(f["план визитов"])} визитов${
+            f["ожидаемо плана"]!=null?` · к дате норма ${pc(f["ожидаемо плана"])}`:""}${
+            f["отставание"]!=null?` <span class="${f["отставание"]>=0?"up":"down"}">${f["отставание"]>=0?"+":""}${f1(f["отставание"])} п.п.</span>`:""}`
+        : `${f1(f["визитов"])} визитов, план маршрута не найден`)}
     ${tile("Точек пройдено", f1(f["точек"]),"", f["план точек"]?`из ${f1(f["план точек"])} по маршруту · ${pc(f["покрытие точек"])}`:"")}
     ${tile("Эффективность", pc(f["эффективность"]),"", `команда ${pc(t["эффективность"])} · неэфф. ${f1(f["неэффективных"])}`)}
     ${tile("Сток от ёмкости", pc(f["сток"]),"", `команда ${pc(t["сток"])}`)}
@@ -237,15 +250,89 @@ function kpiBlock(p, boss){
     теми же формулами, что и общий KPI проекта. На твою оплату они напрямую не переносятся —
     договорной KPI считается по проекту целиком.</p>`;
 }
+function groupSummary(g){
+  const n = k => g.filter(r=>r["светофор"]===k).length;
+  const eff = g.map(r=>r["эфф неделя"]).filter(v=>v!=null);
+  const up = g.filter(r=>(r["динамика эфф"]||0)>0).length;
+  const down = g.filter(r=>(r["динамика эфф"]||0)<0).length;
+  const lag = g.filter(r=>r["план в срок"]===false);
+  const exp = g.map(r=>r["ожидаемо плана"]).find(v=>v!=null);
+  return `<div class="sum">
+    <span>маршрутов <b>${g.length}</b></span>
+    <span>не выполняют план: <b class="${lag.length?"down":""}">${lag.length}</b></span>
+    ${exp!=null?`<span>норма к сегодняшнему дню <b>${pc(exp)}</b></span>`:""}
+  </div>
+  <div class="sum">
+    <span><span class="dot" style="display:inline-block;background:var(--good)"></span> <b>${n("зелёный")}</b>
+      <span class="dot" style="display:inline-block;background:var(--warn);margin-left:8px"></span> <b>${n("жёлтый")}</b>
+      <span class="dot" style="display:inline-block;background:var(--crit);margin-left:8px"></span> <b>${n("красный")}</b></span>
+    <span>эфф. недели <b>${eff.length?pc(eff.reduce((a,b)=>a+b,0)/eff.length):nd}</b></span>
+    <span>к прошлой неделе <b class="up">↑${up}</b> / <b class="down">↓${down}</b></span>
+  </div>`;
+}
+function sortGroup(g){
+  const c=[...g];
+  if(sortKey==="территория") return c.sort((a,b)=>String(a["территория"]).localeCompare(String(b["территория"])));
+  return c.sort((a,b)=>{
+    const x=a[sortKey], y=b[sortKey];
+    if(x==null) return 1; if(y==null) return -1;
+    return x-y;                      // худшие сверху: с ними и разговаривать первым
+  });
+}
+function groupTable(p){
+  let s=`<table><tr><th>Маршрут</th><th>План визитов</th><th>Рейтинг</th><th>Эфф. недели</th><th></th></tr>`;
+  sortGroup(p["группа"]).forEach(r=>{
+    s+=`<tr class="go" data-terr="${r["территория"]}">
+      <td>${r["территория"]}<div class="who">${r["исполнитель"]}${r["руководитель"]?" · "+r["руководитель"].split(" ")[0]:""}</div></td>
+      <td>${r["план в срок"]===false?'<span class="dot" style="display:inline-block;background:var(--crit)"></span> ':""}
+        <b>${pc(r["выполнение плана"])}</b>
+        <div class="who">${f1(r["визитов месяц"])}/${f1(r["план визитов"])}${
+          r["отставание"]!=null?` · ${r["отставание"]>=0?"+":""}${f1(r["отставание"])} п.п.`:""}</div></td>
+      <td><span class="dot" style="display:inline-block;background:${LIGHT[r["светофор"]]||"var(--muted)"}"></span>
+        ${f1(r["рейтинг"])}<div class="who">${r["место"]?r["место"]+"-е место":r["светофор"]}</div></td>
+      <td>${pc(r["эфф неделя"])}${arrow(r["динамика эфф"]," п.п.")}<div class="who">${f1(r["визитов неделя"])} виз.${arrow(r["динамика визитов"],"")}</div></td>
+      <td class="arrow">›</td></tr>`;});
+  return s+"</table>";
+}
 function groupBlock(p){
   if(!p["группа"]) return "";
-  let s=`<h2>Мои маршруты · месяц</h2><div class="card"><table>
-    <tr><th>Маршрут</th><th>Рейтинг</th><th>Визитов</th><th>Эфф.</th><th>Сток</th></tr>`;
-  p["группа"].forEach(r=>{s+=`<tr><td>${r["территория"]}<div class="who">${r["исполнитель"]}</div></td>
-    <td><span class="dot" style="display:inline-block;background:${LIGHT[r["светофор"]]||"var(--muted)"}"></span>
-    ${f1(r["рейтинг"])}<div class="who">${r["светофор"]}</div></td><td>${f1(r["визитов месяц"])}</td>
-    <td>${pc(r["эфф месяц"])}</td><td>${pc(r["сток месяц"])}</td></tr>`;});
-  return s+"</table></div>";
+  return `<h2>Мои маршруты</h2>${groupSummary(p["группа"])}
+    <div class="tabs">${SORTS.map(x=>`<button class="tab" data-s="${x[0]}">${x[1]}</button>`).join("")}</div>
+    <div class="card" id="grp">${groupTable(p)}</div>
+    <p class="note">Красная точка у плана — отставание больше 10 п.п. от того, что должно
+      быть выполнено к текущей дате. Норма считается по рабочим дням пн-пт с начала месяца,
+      праздники и отпуска не учитываются.<br>
+      Нажми на строку — откроется карточка маршрута в том же виде, в каком её видит
+      сам мерчандайзер.</p>`;
+}
+function bindGroup(p){
+  document.querySelectorAll(".tab[data-s]").forEach(b=>{
+    b.setAttribute("aria-selected", b.dataset.s===sortKey);
+    b.onclick=()=>{ sortKey=b.dataset.s; $("#grp").innerHTML=groupTable(p); bindGroup(p); };
+  });
+  document.querySelectorAll("tr.go").forEach(tr=>{
+    tr.onclick=()=>openChild(p, tr.dataset.terr);
+  });
+}
+
+async function openChild(boss, terr){
+  const a = (boss["доступ"]||{})[terr];
+  if(!a || !DATA["блоки"][a.id]) return;
+  const raw = unhex(DATA["блоки"][a.id]);
+  const key = await crypto.subtle.importKey("raw", unhex(a.k), "AES-GCM", false, ["decrypt"]);
+  const plain = await crypto.subtle.decrypt({name:"AES-GCM", iv: raw.slice(0,12)}, key, raw.slice(12));
+  const p = JSON.parse(new TextDecoder().decode(plain));
+  p["назад"] = boss;
+  render(p);
+}
+
+const SORTS = [["отставание","по отставанию от плана"],["рейтинг","по рейтингу"],
+               ["динамика эфф","по динамике недели"],["территория","по номеру маршрута"]];
+let sortKey = "отставание";
+
+function arrow(d, unit){
+  if(d===null||d===undefined||d===0) return "";
+  return ` <span class="${d>0?"up":"down"}">${d>0?"▲":"▼"}${Math.abs(d).toLocaleString("ru-RU")}${unit||""}</span>`;
 }
 
 const TREND = [["эффективность","Эффективность, %"," %","line"],
@@ -276,6 +363,7 @@ function render(p){
   const tabs = TABS[boss ? "boss" : "merch"];
   $("#gate").hidden = true; $("#app").hidden = false;
   $("#app").innerHTML = `
+    ${p["назад"]?'<button class="back" id="back">‹ назад к списку маршрутов</button>':""}
     <h1>${boss?p["исполнитель"]:"Маршрут "+p["территория"]}</h1>
     <p class="sub">${boss?p["территория"]:p["исполнитель"]+(p["город"]?" · "+p["город"]:"")}
       ${boss?"":" · руководитель "+p["руководитель"]}</p>
@@ -316,10 +404,12 @@ function render(p){
     <nav class="nav">${tabs.map(t=>`<button data-p="${t[0]}" aria-selected="false">${t[1]}</button>`).join("")}</nav>`;
 
   if(!boss) drawTrend(p,"эффективность");
+  if(boss) bindGroup(p);
+  if(p["назад"]) $("#back").onclick=()=>{ render(p["назад"]); switchTab("group"); };
   document.querySelectorAll(".tab[data-k]").forEach(b=>b.onclick=()=>drawTrend(p,b.dataset.k));
   document.querySelectorAll(".nav button").forEach(b=>b.onclick=()=>switchTab(b.dataset.p));
-  const want = localStorage.getItem("mtab");
-  switchTab(tabs.some(t=>t[0]===want) ? want : tabs[0][0]);
+  const want = p["назад"] ? null : localStorage.getItem("mtab");
+  switchTab(tabs.some(t=>t[0]===want) ? want : (boss ? "group" : tabs[0][0]));
   $("#out").onclick=()=>{localStorage.removeItem("mcode");location.reload();};
   if(!window._tipBound){
     window._tipBound = true;

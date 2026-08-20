@@ -89,12 +89,13 @@ button.go{width:100%;margin-top:10px;padding:13px;font-size:16px;font-weight:600
 
 <div id="gate">
   <h1>Мой дашборд</h1>
-  <p class="sub" style="margin:6px 0 16px">Введи персональный код маршрута</p>
-  <form id="f"><input id="code" inputmode="latin" autocomplete="off" spellcheck="false"
-    placeholder="XXXXX-XXXXX" maxlength="13">
+  <p class="sub" style="margin:6px 0 16px">Введи персональный код маршрута — 6 цифр</p>
+  <form id="f"><input id="code" type="text" inputmode="numeric" pattern="[0-9]*"
+    autocomplete="off" spellcheck="false" placeholder="000000">
   <button class="go" type="submit">Открыть</button></form>
   <div class="err" id="err"></div>
-  <p class="note">Код действует только на твой маршрут. Данные считает отдел аналитики
+  <p class="note">Код действует только на твой маршрут и запоминается в браузере —
+     вводить его каждый раз не нужно. Данные считает отдел аналитики
      KT&amp;G по проверенной выгрузке визитов.</p>
 </div>
 
@@ -320,23 +321,53 @@ function render(p){
   const want = localStorage.getItem("mtab");
   switchTab(tabs.some(t=>t[0]===want) ? want : tabs[0][0]);
   $("#out").onclick=()=>{localStorage.removeItem("mcode");location.reload();};
-  document.addEventListener("pointermove",e=>{
-    const el=e.target.closest("[data-t]"); el?showTip(e,el.dataset.t):hideTip();});
-  document.addEventListener("pointerleave",hideTip);
+  if(!window._tipBound){
+    window._tipBound = true;
+    document.addEventListener("pointermove",e=>{
+      const el=e.target.closest("[data-t]"); el?showTip(e,el.dataset.t):hideTip();});
+    document.addEventListener("pointerleave",hideTip);
+  }
 }
 
 async function go(code){
   $("#err").textContent="Открываю…";
   try{
     const p = await open(code);
-    if(!p){ $("#err").textContent="Код не найден. Проверь раскладку и попробуй ещё раз."; return; }
+    if(!p){
+      $("#app").hidden = true; $("#gate").hidden = false;
+      $("#err").textContent="Код не найден. Проверь раскладку и попробуй ещё раз.";
+      return;
+    }
     localStorage.setItem("mcode",code); render(p);
   }catch(e){ $("#err").textContent="Код не подошёл: "+(e.message||e); }
 }
+$("#code").addEventListener("input", e => {
+  // только цифры и не длиннее шести: вставка «1902-00055» не должна
+  // молча превращаться в обрезок другого кода
+  e.target.value = e.target.value.replace(/\D/g, "").slice(0, 6);
+});
 $("#f").onsubmit=e=>{e.preventDefault();
-  const c=$("#code").value.toUpperCase().replace(/[^A-Z0-9]/g,"");
-  if(c.length<10){$("#err").textContent="В коде 10 знаков.";return;} go(c);};
-const saved=localStorage.getItem("mcode"); if(saved) go(saved);
+  const c=$("#code").value.replace(/\D/g,"");
+  if(c.length!==6){$("#err").textContent="Код — 6 цифр.";return;} go(c);};
+function fromLink(){
+  const m = (location.hash||"").match(/k=([A-Za-z0-9]+)/);
+  if(!m) return null;
+  const code = m[1].toUpperCase();
+  // убираем код из адресной строки: он не должен попадать в скриншоты,
+  // в «поделиться» и в историю браузера
+  history.replaceState(null, "", location.pathname + location.search);
+  return code;
+}
+// Смена только части после «#» документ не перезагружает: браузер считает,
+// что это та же страница. Без этого обработчика вторая персональная ссылка
+// показывала бы данные первой.
+addEventListener("hashchange", () => {
+  const c = fromLink();
+  if(c) go(c);
+});
+const link = fromLink();
+const saved = link || localStorage.getItem("mcode");
+if(saved) go(saved);
 </script>
 </body>
 </html>

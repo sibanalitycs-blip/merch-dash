@@ -294,16 +294,70 @@ function groupTable(p){
       <td class="arrow">›</td></tr>`;});
   return s+"</table>";
 }
+function projBlock(p){
+  const j = p["проект"]||{};
+  const lag = j["отставание"];
+  return `<h2>Выполнение плана визитов</h2>
+    <p class="sub" style="margin:-4px 0 10px">${p["месяц"]["метка"]} · отработано ${j["рабочих дней"]} рабочих дней</p>
+    <div class="grid">
+      ${tile("Выполнение плана", pc(j["выполнение без закрытых"]),"",
+        `${f1(j["факт"])} из ${f1(j["план без закрытых"])} визитов`)}
+      ${tile("Норма к сегодня", pc(j["норма"]),"", "по рабочим дням пн-пт")}
+      ${tile("Отставание", (lag==null?nd:(lag>=0?"+":"")+f1(lag)+" п.п."),"",
+        lag==null?"":`<span class="${lag>=0?"up":"down"}">${lag>=0?"идём в графике":"отстаём от графика"}</span>`)}
+      ${tile("Маршрутов", f1(j["маршрутов с визитами"]),"",
+        `в плане ${f1(j["маршрутов в плане"])} · закрыто ${f1(j["закрытых маршрутов"])}`)}
+      ${tile("Супервайзеров", f1(j["руководителей"]),"",
+        `${f1((p["супервайзеры"]||[]).reduce((a,r)=>a+(r["не выполняют план"]||0),0))} маршрутов отстают от плана`)}
+      ${tile("План с закрытыми", pc(j["выполнение"]),"",
+        `${f1(j["план"])} визитов по маршрутизации`)}
+    </div>
+    <p class="note">Основная цифра посчитана без закрытых маршрутов: их плановые визиты
+      никто не делает и делать не должен. Строка «План с закрытыми» — та же цифра
+      по маршрутизации целиком, для сверки с подрядчиком.</p>`;
+}
+
+function svBlock(p){
+  const rows = p["супервайзеры"]||[];
+  if(!rows.length) return "";
+  return `<h2>Супервайзеры</h2>
+    <p class="sub" style="margin:-4px 0 10px">Сортировка по отставанию от плана. Нажми на строку — откроются его маршруты.</p>
+    <div class="card"><table>
+      <tr><th>Руководитель</th><th>План визитов</th><th>Рейтинг</th><th>Проблемные</th><th></th></tr>
+      ${rows.map(r=>`<tr class="sv" data-sv="${r["руководитель"]}">
+        <td>${r["руководитель"]}<div class="who">${f1(r["маршрутов"])} маршрутов</div></td>
+        <td>${r["отставание"]!=null&&r["отставание"]<-10?'<span class="dot" style="display:inline-block;background:var(--crit)"></span> ':""}
+          <b>${pc(r["выполнение плана"])}</b>
+          <div class="who">${f1(r["визитов месяц"])}/${f1(r["план визитов"])}${
+            r["отставание"]!=null?` · ${r["отставание"]>=0?"+":""}${f1(r["отставание"])} п.п.`:""}</div></td>
+        <td><span class="dot" style="display:inline-block;background:${LIGHT[r["светофор"]]||"var(--muted)"}"></span>
+          ${f1(r["рейтинг"])}<div class="who">эфф. ${pc(r["эффективность месяц"])}</div></td>
+        <td>${f1(r["не выполняют план"])}<div class="who">красных ${f1(r["красных"])}</div></td>
+        <td class="arrow">›</td></tr>`).join("")}
+    </table></div>`;
+}
+
 function groupBlock(p){
   if(!p["группа"]) return "";
   return `<h2>Мои маршруты</h2>${groupSummary(p["группа"])}
     <div class="tabs">${SORTS.map(x=>`<button class="tab" data-s="${x[0]}">${x[1]}</button>`).join("")}</div>
     <div class="card" id="grp">${groupTable(p)}</div>
+    ${(p["не закрыты"]||[]).length ? `<h2>Маршруты из плана без визитов</h2>
+      <div class="card"><table><tr><th>Маршрут</th><th>План визитов</th><th>План точек</th></tr>
+      ${p["не закрыты"].map(r=>`<tr><td>${r["территория"]}</td><td>${f1(r["план визитов"])}</td>
+        <td>${f1(r["план точек"])}</td></tr>`).join("")}</table></div>
+      <p class="note">Маршруты есть в маршрутизации, но за месяц по ним нет ни одного визита:
+        маршруты закрыты. На выполнение плана по людям это не влияет — их визиты
+        (${f1(p["не закрыты"].reduce((a,r)=>a+r["план визитов"],0))} по плану) просто завышают
+        плановую цифру по проекту в целом.</p>` : ""}
     <p class="note">Красная точка у плана — отставание больше 10 п.п. от того, что должно
       быть выполнено к текущей дате. Норма считается по рабочим дням пн-пт с начала месяца,
       праздники и отпуска не учитываются.<br>
       Нажми на строку — откроется карточка маршрута в том же виде, в каком её видит
       сам мерчандайзер.</p>`;
+}
+function bindSv(p){
+  document.querySelectorAll("tr.sv").forEach(tr=>{ tr.onclick=()=>openBoss(p, tr.dataset.sv); });
 }
 function bindGroup(p){
   document.querySelectorAll(".tab[data-s]").forEach(b=>{
@@ -314,6 +368,17 @@ function bindGroup(p){
     tr.onclick=()=>openChild(p, tr.dataset.terr);
   });
 }
+
+async function openBlock(parent, ref){
+  if(!ref || !DATA["блоки"][ref.id]) return;
+  const raw = unhex(DATA["блоки"][ref.id]);
+  const key = await crypto.subtle.importKey("raw", unhex(ref.k), "AES-GCM", false, ["decrypt"]);
+  const plain = await crypto.subtle.decrypt({name:"AES-GCM", iv: raw.slice(0,12)}, key, raw.slice(12));
+  const p = JSON.parse(new TextDecoder().decode(plain));
+  p["назад"] = parent;              // цепочка «проект → супервайзер → маршрут»
+  render(p);
+}
+async function openBoss(mgr, name){ return openBlock(mgr, (mgr["доступ рук"]||{})[name]); }
 
 async function openChild(boss, terr){
   const a = (boss["доступ"]||{})[terr];
@@ -348,8 +413,9 @@ function drawTrend(p, k){
 }
 
 const TABS = {
-  merch: [["week","Неделя"],["month","Месяц"],["kpi","KPI"],["trend","Динамика"]],
-  boss:  [["month","Месяц"],["kpi","KPI"],["group","Маршруты"]]
+  merch:   [["week","Неделя"],["month","Месяц"],["kpi","KPI"],["trend","Динамика"]],
+  boss:    [["group","Маршруты"],["month","Месяц"],["kpi","KPI"]],
+  manager: [["proj","Проект"],["sv","Супервайзеры"],["group","Маршруты"],["kpi","KPI"]]
 };
 function switchTab(k){
   document.querySelectorAll(".panel").forEach(x => x.hidden = x.dataset.p !== k);
@@ -359,11 +425,14 @@ function switchTab(k){
 }
 
 function render(p){
-  const f = p["месяц"]["факт"], boss = p["роль"]==="руководитель";
-  const tabs = TABS[boss ? "boss" : "merch"];
+  const f = p["месяц"]["факт"];
+  const mgr = p["роль"]==="менеджер";
+  const boss = mgr || p["роль"]==="руководитель";
+  const tabs = TABS[mgr ? "manager" : (boss ? "boss" : "merch")];
   $("#gate").hidden = true; $("#app").hidden = false;
   $("#app").innerHTML = `
-    ${p["назад"]?'<button class="back" id="back">‹ назад к списку маршрутов</button>':""}
+    ${p["назад"]?`<button class="back" id="back">‹ назад: ${
+      p["назад"]["роль"]==="менеджер" ? "супервайзеры" : "маршруты"}</button>`:""}
     <h1>${boss?p["исполнитель"]:"Маршрут "+p["территория"]}</h1>
     <p class="sub">${boss?p["территория"]:p["исполнитель"]+(p["город"]?" · "+p["город"]:"")}
       ${boss?"":" · руководитель "+p["руководитель"]}</p>
@@ -378,6 +447,9 @@ function render(p){
         <div class="meta">${f["слабые"]?"просело: "+f["слабые"]:"провалов нет"}</div>
       </div>
     </div>
+
+    ${mgr?`<section class="panel" data-p="proj" hidden>${projBlock(p)}</section>
+      <section class="panel" data-p="sv" hidden>${svBlock(p)}</section>`:""}
 
     ${boss?"":`<section class="panel" data-p="week" hidden>
       <h2>Прошлая неделя · ${p["неделя"]["номер"]||""}</h2>${weekBlock(p)}</section>`}
@@ -405,11 +477,16 @@ function render(p){
 
   if(!boss) drawTrend(p,"эффективность");
   if(boss) bindGroup(p);
-  if(p["назад"]) $("#back").onclick=()=>{ render(p["назад"]); switchTab("group"); };
+  if(mgr) bindSv(p);
+  if(p["назад"]) $("#back").onclick=()=>{
+    const up = p["назад"];
+    render(up);
+    switchTab(up["роль"]==="менеджер" ? "sv" : "group");
+  };
   document.querySelectorAll(".tab[data-k]").forEach(b=>b.onclick=()=>drawTrend(p,b.dataset.k));
   document.querySelectorAll(".nav button").forEach(b=>b.onclick=()=>switchTab(b.dataset.p));
   const want = p["назад"] ? null : localStorage.getItem("mtab");
-  switchTab(tabs.some(t=>t[0]===want) ? want : (boss ? "group" : tabs[0][0]));
+  switchTab(tabs.some(t=>t[0]===want) ? want : (mgr ? "proj" : (boss ? "group" : tabs[0][0])));
   $("#out").onclick=()=>{localStorage.removeItem("mcode");location.reload();};
   if(!window._tipBound){
     window._tipBound = true;

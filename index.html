@@ -2,6 +2,9 @@
 <html lang="ru" data-theme="auto">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
 <title>Мой дашборд</title>
@@ -29,6 +32,7 @@ h2{font-size:13px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;
    color:var(--muted);margin:26px 0 10px}
 .sub{color:var(--muted);font-size:12px;margin:0}
 .card{background:var(--surface);border:1px solid var(--ring);border-radius:14px;padding:14px}
+[hidden]{display:none !important}
 .hero{display:flex;align-items:center;gap:16px;margin-top:14px}
 .hero .num{font-size:52px;font-weight:600;line-height:1}
 .hero .meta{font-size:13px;color:var(--ink2)}
@@ -159,6 +163,9 @@ function tile(lab, val, unit, cmp){
     <div class="val">${val}${unit?`<small>${unit}</small>`:""}</div>
     ${cmp?`<div class="cmp">${cmp}</div>`:""}</div>`;
 }
+/* Метка версии вёрстки: видна внизу страницы. Если человек говорит, что видит
+   старое, а здесь стоит свежая дата — значит браузер отдал кэш (27.08.2026). */
+const BUILD = "27.08.2026-3";
 const LIGHT = {"зелёный":"var(--good)","жёлтый":"var(--warn)","красный":"var(--crit)","н/д":"var(--muted)"};
 /* Составляющие рейтинга приходят из движка контроля короткими словами. На странице
    показываем те же формулировки, что на плитках: иначе «сток» в строке слабых мест
@@ -542,7 +549,7 @@ function drawTrend(p, k){
 const TABS = {
   merch:   [["month","Месяц"],["points","Точки"],["trend","Динамика"]],
   boss:    [["group","Маршруты"],["month","Месяц"],["kpi","KPI"]],
-  manager: [["proj","Проект"],["sv","Супервайзеры"],["group","Маршруты"]]
+  manager: [["proj","Проект"],["sv","Супервайзеры"],["group","Маршруты"],["trend","Динамика"]]
 };
 /* Рейтинг показываем ровно на одной вкладке, своей для каждой роли:
    мерчандайзер — «Месяц», руководитель — «Маршруты», менеджер — «Проект».
@@ -608,20 +615,24 @@ function render(p){
     ${boss
       ? `<section class="panel" data-p="group" hidden>${
             mgr ? "" : forecastBlock(p["прогноз"], "группы")}${groupBlock(p)}</section>`
-      : `<section class="panel" data-p="trend" hidden><h2>Динамика по неделям</h2>
+      : ""}
+    ${(!boss || mgr)
+      ? `<section class="panel" data-p="trend" hidden><h2>Динамика по неделям${
+            mgr ? " · весь проект" : ""}</h2>
           <div class="tabs">${TREND.map(t=>`<button class="tab" data-k="${t[0]}">${t[1].split(",")[0]}</button>`).join("")}</div>
           <div class="card"><div id="trend"></div></div>
           <details class="note"><summary>показать таблицей</summary><div id="trendTable"></div></details>
-        </section>`}
+        </section>`
+      : ""}
 
-    <p class="note">Обновлено ${p["обновлено"]} · источник: ${p["источник"]}<br>
+    <p class="note">Обновлено ${p["обновлено"]} · вёрстка ${BUILD} · источник: ${p["источник"]}<br>
       Показатели считаются по правилам проекта: в расчёт качества идут визиты со статусом
       «Допущен к работе» и данными с фото. Вопросы по цифре — в отдел аналитики KT&amp;G.</p>
     <p style="margin-top:14px"><button class="exit" id="out">выйти и забыть код</button></p>
 
     <nav class="nav">${tabs.map(t=>`<button data-p="${t[0]}" aria-selected="false">${t[1]}</button>`).join("")}</nav>`;
 
-  if(!boss) drawTrend(p,"эффективность");
+  if(!boss || mgr) drawTrend(p,"эффективность");
   if(boss) bindGroup(p);
   if(mgr) bindSv(p);
   if(p["назад"]) $("#back").onclick=()=>{

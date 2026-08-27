@@ -1,2 +1,4 @@
 .publish/
 .DS_Store
+*.bak_*
+*.tmp

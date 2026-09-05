@@ -94,7 +94,16 @@ td.arrow{width:16px;padding-left:0}
 .nav button[aria-selected="true"]{color:var(--s1);border-top-color:var(--s1);font-weight:600}
 .panel[hidden]{display:none}
 .panel h2:first-child{margin-top:14px}
+.chk{margin-top:7px;padding-top:7px;border-top:1px dashed var(--grid);font-size:12.5px;color:var(--ink2)}
+.chk b{color:var(--crit);font-weight:600}
+details.fixed{margin-top:14px}
+details.fixed summary{cursor:pointer;font-size:13px;color:var(--s1);padding:8px 0}
 .note{font-size:12px;color:var(--muted);margin-top:10px}
+.upd{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:2px 0 12px}
+.rel{background:var(--surface);border:1px solid var(--ring);border-radius:999px;
+  padding:7px 14px;font:inherit;font-size:13px;color:var(--s1);cursor:pointer}
+.rel[disabled]{opacity:.5;cursor:default}
+.updWhen{font-size:12px;color:var(--muted)}
 #gate{max-width:380px;margin:14vh auto;padding:0 16px;text-align:center}
 input{width:100%;padding:13px;font-size:19px;text-align:center;letter-spacing:.14em;
   text-transform:uppercase;border-radius:11px;border:1px solid var(--axis);
@@ -165,7 +174,7 @@ function tile(lab, val, unit, cmp){
 }
 /* Метка версии вёрстки: видна внизу страницы. Если человек говорит, что видит
    старое, а здесь стоит свежая дата — значит браузер отдал кэш (27.08.2026). */
-const BUILD = "27.08.2026-8";
+const BUILD = "05.09.2026-10";
 const LIGHT = {"зелёный":"var(--good)","жёлтый":"var(--warn)","красный":"var(--crit)","н/д":"var(--muted)"};
 /* Составляющие рейтинга приходят из движка контроля короткими словами. На странице
    показываем те же формулировки, что на плитках: иначе «сток» в строке слабых мест
@@ -272,6 +281,35 @@ function monthBlock(p){
       `план ${f1(f["норматив"])} визитов в день`)}
   </div>`;
 }
+// Одна карточка визита. Причины чекера раскрываем поимённо: строка
+// «Чекер нашёл ошибку» человеку у полки ничего не говорит.
+function ptCard(r){
+  const ch = r["чекер"] || [];
+  // если пункты чекера расшифрованы, общая формулировка «Чекер нашёл ошибку» дублирует их
+  const why = (r["причины"]||[r["причина"]]).filter(Boolean)
+    .filter(x => !(ch.length && /^Чекер нашёл ошибку/.test(x)));
+  return `<div class="pt">
+    <div class="who">${r["дата"]}${r["визит"]?` · визит ${r["визит"]}`:""}${
+      r["исправлено"]?` · <span class="up">исправлено ${r["исправлено"]}</span>`:""}</div>
+    <div class="name">${r["точка"]||"точка без названия"}${
+      r["код точки"]?` <span class="who">· ${r["код точки"]}</span>`:""}</div>
+    <div class="who">${r["адрес"] || r["город"] || ""}</div>
+    ${why.length?`<ul class="why-list">${why.map(x=>`<li>${x}</li>`).join("")}</ul>`:""}
+    ${ch.length?`<div class="chk"><b>Чекер снял по пунктам:</b>
+      <ul class="why-list">${ch.map(x=>`<li>${x}</li>`).join("")}</ul></div>`:""}
+  </div>`;
+}
+
+function fixedBlock(p){
+  const rows = p["исправлено"] || [];
+  if(!rows.length) return "";
+  return `<details class="fixed"><summary>Уже исправлено · ${rows.length}</summary>
+    <p class="note" style="margin:8px 0 6px">Эти визиты не зачтены, но в точке
+      с тех пор прошёл хороший визит — идти туда не нужно. Показаны, чтобы
+      было видно, за что снимали.</p>
+    <div class="card">${rows.map(ptCard).join("")}</div></details>`;
+}
+
 function pointsBlock(p){
   const rows = p["плохие точки"] || [];
   const ext = p["внешних визитов"] || 0;
@@ -290,15 +328,7 @@ function pointsBlock(p){
       её уберут из адресной программы.</p>`:""}</details>`;
   if(!rows.length) return `<div class="card"><p style="margin:0">
       <b>Визитов, которые можно исправить, нет.</b></p></div>${tail}`;
-  const li = rows.map(r=>{
-    const why = (r["причины"]||[r["причина"]]).filter(Boolean);
-    return `<div class="pt">
-      <div class="who">${r["дата"]}${r["визит"]?` · визит ${r["визит"]}`:""}</div>
-      <div class="name">${r["точка"]||"точка без названия"}${
-        r["код точки"]?` <span class="who">· ${r["код точки"]}</span>`:""}</div>
-      <div class="who">${r["адрес"] || r["город"] || ""}</div>
-      <ul class="why-list">${why.map(x=>`<li>${x}</li>`).join("")}</ul>
-    </div>`;}).join("");
+  const li = rows.map(ptCard).join("");
   return `<p class="sub" style="margin:-4px 0 10px">Визиты этого месяца, которые не зачтены,
       и точка с тех пор не переделана.</p>
     <div class="card">${li}</div>${tail}`;
@@ -379,7 +409,7 @@ function groupTable(p){
   let s=`<table><tr><th>Маршрут</th><th>План визитов</th><th>Рейтинг</th><th>Точек с ошибками</th><th></th></tr>`;
   sortGroup(p["группа"]).forEach(r=>{
     s+=`<tr class="go" data-terr="${r["территория"]}">
-      <td>${r["территория"]}<div class="who">${r["исполнитель"]}${r["руководитель"]?" · "+r["руководитель"].split(" ")[0]:""}</div></td>
+      <td>${r["территория"]}${r["руководитель"]?`<div class="who">${r["руководитель"]}</div>`:""}</td>
       <td>${r["план ок"]===false?'<span class="dot" style="display:inline-block;background:var(--crit)"></span> ':""}
         <b>${pc(r["выполнение плана"])}</b>
         <div class="who">${f1(r["визитов месяц"])}/${f1(r["план визитов"])} · в лоб ${pc(r["выполнение в лоб"])}</div></td>
@@ -577,11 +607,15 @@ function render(p){
   $("#app").innerHTML = `
     ${p["назад"]?`<button class="back" id="back">‹ назад: ${
       p["назад"]["роль"]==="менеджер" ? "супервайзеры" : "маршруты"}</button>`:""}
-    <h1>${boss?p["исполнитель"]:(p["исполнитель"]||"Маршрут "+p["территория"])}</h1>
+    <h1>${boss ? p["исполнитель"] : "Маршрут " + p["территория"]}</h1>
     <p class="sub">${boss
       ? p["территория"]
-      : [p["территория"], p["город"], p["руководитель"]?"руководитель "+p["руководитель"]:""]
+      : [p["город"], p["руководитель"]?"руководитель "+p["руководитель"]:""]
           .filter(Boolean).join(" · ")}</p>
+    ${p["назад"]?"":`<div class="upd">
+      <button class="rel" id="rel">↻ Обновить</button>
+      <span class="updWhen" id="updWhen">данные от ${p["обновлено"]}</span>
+    </div>`}
     ${""/* блок рейтинга переехал внутрь вкладок: он дублировался на каждой */}
     <div class="hero card" hidden id="heroCard">
       <div><div class="num">${f1(f["рейтинг"])}</div>
@@ -609,7 +643,8 @@ function render(p){
       ${boss?"":`<h2>KPI договора · мой маршрут</h2>${kpiBlock(p, false)}`}</section>
 
     ${boss?"":`<section class="panel" data-p="points" hidden>
-      <h2>Точки на исправление · ${(p["плохие точки"]||[]).length}</h2>${pointsBlock(p)}</section>`}
+      <h2>Точки на исправление · ${(p["плохие точки"]||[]).length}</h2>${pointsBlock(p)}
+      ${fixedBlock(p)}</section>`}
 
     ${(mgr||!boss)?"":`<section class="panel" data-p="kpi" hidden>
       <h2>KPI договора · моя группа</h2>${kpiBlock(p, boss)}</section>`}
@@ -646,12 +681,55 @@ function render(p){
   document.querySelectorAll(".nav button").forEach(b=>b.onclick=()=>switchTab(b.dataset.p));
   const want = p["назад"] ? null : localStorage.getItem("mtab");
   switchTab(tabs.some(t=>t[0]===want) ? want : (mgr ? "proj" : (boss ? "group" : tabs[0][0])));
+  if($("#rel")) $("#rel").onclick = refresh;
   $("#out").onclick=()=>{localStorage.removeItem("mcode");location.reload();};
   if(!window._tipBound){
     window._tipBound = true;
     document.addEventListener("pointermove",e=>{
       const el=e.target.closest("[data-t]"); el?showTip(e,el.dataset.t):hideTip();});
     document.addEventListener("pointerleave",hideTip);
+  }
+}
+
+/* Кнопка «Обновить»: сначала сверяем вёрстку — если на сервере лежит другая
+   сборка страницы, старый код может не понять новые данные, поэтому
+   перезагружаем документ целиком. Если вёрстка та же — меняем только данные,
+   не выбрасывая человека на экран ввода кода. */
+async function refresh(){
+  const btn = $("#rel"), when = $("#updWhen");
+  if(!btn) return;
+  const ts = Date.now(), back = () => { btn.disabled = false; btn.textContent = "↻ Обновить"; };
+  btn.disabled = true; btn.textContent = "проверяю…";
+  try{
+    const html = await (await fetch("index.html?v=" + ts, {cache:"no-store"})).text();
+    const m = html.match(/const BUILD = "([^"]+)"/);
+    if(m && m[1] !== BUILD){
+      when.textContent = "вышла новая версия — перезагружаю";
+      location.replace(location.pathname + "?v=" + ts);
+      return;
+    }
+    const fresh = await (await fetch("data.json?v=" + ts, {cache:"no-store"})).json();
+    const was = DATA && DATA["обновлено"];
+    if(fresh["обновлено"] === was){
+      back(); when.textContent = "новых данных нет · последние от " + was;
+      return;
+    }
+    DATA = fresh;
+    const code = localStorage.getItem("mcode");
+    const fresh_p = code ? await open(code) : null;
+    if(!fresh_p){
+      localStorage.removeItem("mcode");
+      $("#app").hidden = true; $("#gate").hidden = false;
+      $("#err").textContent = "Код больше не действует — запроси новый у руководителя.";
+      return;
+    }
+    render(fresh_p);
+    const w = $("#updWhen");
+    if(w) w.textContent = "обновлено · данные от " + fresh["обновлено"];
+    scrollTo({top:0});
+  }catch(e){
+    back();
+    when.textContent = "не удалось обновить — проверь интернет";
   }
 }
 

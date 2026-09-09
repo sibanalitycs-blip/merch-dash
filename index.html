@@ -174,7 +174,7 @@ function tile(lab, val, unit, cmp){
 }
 /* Метка версии вёрстки: видна внизу страницы. Если человек говорит, что видит
    старое, а здесь стоит свежая дата — значит браузер отдал кэш (27.08.2026). */
-const BUILD = "05.09.2026-10";
+const BUILD = "09.09.2026-11";
 const LIGHT = {"зелёный":"var(--good)","жёлтый":"var(--warn)","красный":"var(--crit)","н/д":"var(--muted)"};
 /* Составляющие рейтинга приходят из движка контроля короткими словами. На странице
    показываем те же формулировки, что на плитках: иначе «сток» в строке слабых мест
@@ -603,6 +603,30 @@ function render(p){
   const boss = mgr || p["роль"]==="руководитель";
   HERO_TAB = mgr ? "proj" : (boss ? "group" : "month");
   const tabs = TABS[mgr ? "manager" : (boss ? "boss" : "merch")];
+
+  // Доступ выпущен раньше, чем подрядчик привязал территории: показываем
+  // прямое объяснение вместо вкладок с прочерками.
+  if(boss && !mgr && !(p["группа"]||[]).length){
+    $("#gate").hidden = true; $("#app").hidden = false;
+    $("#app").innerHTML = `
+      <h1>${p["исполнитель"]}</h1>
+      <p class="sub">маршруты ещё не привязаны</p>
+      <div class="upd">
+        <button class="rel" id="rel">↻ Обновить</button>
+        <span class="updWhen" id="updWhen">данные от ${p["обновлено"]}</span>
+      </div>
+      <div class="card">
+        <p>Доступ работает, но за тобой пока не закреплён ни один маршрут.</p>
+        <p class="note">Как только распределение территорий придёт от подрядчика
+          и дашборд обновится, здесь появятся твои маршруты, выполнение плана
+          по каждому и точки на исправление. Нажми «Обновить» — страница
+          подтянет свежие данные без повторного ввода кода.</p>
+      </div>
+      <p style="margin-top:14px"><button class="exit" id="out">выйти и забыть код</button></p>`;
+    $("#rel").onclick = refresh;
+    $("#out").onclick=()=>{localStorage.removeItem("mcode");location.reload();};
+    return;
+  }
   $("#gate").hidden = true; $("#app").hidden = false;
   $("#app").innerHTML = `
     ${p["назад"]?`<button class="back" id="back">‹ назад: ${

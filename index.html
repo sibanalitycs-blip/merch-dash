@@ -102,6 +102,7 @@ details.fixed summary{cursor:pointer;font-size:13px;color:var(--s1);padding:8px 
 .upd{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:2px 0 12px}
 .rel{background:var(--surface);border:1px solid var(--ring);border-radius:999px;
   padding:7px 14px;font:inherit;font-size:13px;color:var(--s1);cursor:pointer}
+a.rel{text-decoration:none;display:inline-flex;align-items:center}
 .rel[disabled]{opacity:.5;cursor:default}
 .updWhen{font-size:12px;color:var(--muted)}
 #gate{max-width:380px;margin:14vh auto;padding:0 16px;text-align:center}
@@ -612,7 +613,7 @@ function render(p){
       <h1>${p["исполнитель"]}</h1>
       <p class="sub">маршруты ещё не привязаны</p>
       <div class="upd">
-        <button class="rel" id="rel">↻ Обновить</button>
+        <button class="rel" id="rel">↻ Обновить дашборд</button><a class="rel navmenu" href="https://sibanalitycs-blip.github.io/fka-dash/menu.html">☰ Перейти в меню</a>
         <span class="updWhen" id="updWhen">данные от ${p["обновлено"]}</span>
       </div>
       <div class="card">
@@ -637,7 +638,7 @@ function render(p){
       : [p["город"], p["руководитель"]?"руководитель "+p["руководитель"]:""]
           .filter(Boolean).join(" · ")}</p>
     ${p["назад"]?"":`<div class="upd">
-      <button class="rel" id="rel">↻ Обновить</button>
+      <button class="rel" id="rel">↻ Обновить дашборд</button><a class="rel navmenu" href="https://sibanalitycs-blip.github.io/fka-dash/menu.html">☰ Перейти в меню</a>
       <span class="updWhen" id="updWhen">данные от ${p["обновлено"]}</span>
     </div>`}
     ${""/* блок рейтинга переехал внутрь вкладок: он дублировался на каждой */}
@@ -722,7 +723,7 @@ function render(p){
 async function refresh(){
   const btn = $("#rel"), when = $("#updWhen");
   if(!btn) return;
-  const ts = Date.now(), back = () => { btn.disabled = false; btn.textContent = "↻ Обновить"; };
+  const ts = Date.now(), back = () => { btn.disabled = false; btn.textContent = "↻ Обновить дашборд"; };
   btn.disabled = true; btn.textContent = "проверяю…";
   try{
     const html = await (await fetch("index.html?v=" + ts, {cache:"no-store"})).text();
